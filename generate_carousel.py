@@ -206,7 +206,7 @@ Return ONLY a raw JSON object. No markdown. No backticks. No explanation.
       "badge": "<2-3 word badge — e.g. BREAKING or ALERT or MUST READ>",
       "headline": "<Viral hook headline — max 10 words, creates urgency or FOMO>",
       "subtext": "<Supporting sentence — max 18 words, adds credibility with a stat or detail>",
-      "image_bg_prompt": "<50-word prompt for Imagen 3: describe a dark, professional, abstract {topic} visualization — NO TEXT in the image, cinematic lighting, deep navy/dark blue palette, subtle grid lines or circuit patterns, dramatic depth of field, 4K ultra detailed>"
+      "image_bg_prompt": "<50-word prompt for Gemini 2.5 Flash Image: describe a dark, professional corporate setting featuring a realistic professional model's face, with subtle glowing graphic icons related to {topic} floating in the background. The composition must have clean, dark negative space in the center/lower area to ensure white text overlay is highly visible. NO text in the image itself, cinematic lighting, deep navy/dark blue palette, 4K detailed>"
     }},
     {{
       "id": 2,
@@ -217,7 +217,7 @@ Return ONLY a raw JSON object. No markdown. No backticks. No explanation.
         "<Second specific data point — under 15 words>",
         "<Third specific data point — under 15 words>"
       ],
-      "image_bg_prompt": "<50-word prompt for Imagen 3: dark professional data/analytics visualization, NO TEXT, dark blue/indigo theme, abstract flowing data streams, corporate tech aesthetic>"
+      "image_bg_prompt": "<50-word prompt for Gemini 2.5 Flash Image: dark professional scene with a close-up of a model's face or hand interacting with sleek data/analytics graphic icons. Keep the background dark, low contrast, and clean in text-heavy areas for maximum legibility. NO text in the image, cinematic lighting, dark blue/indigo theme>"
     }},
     {{
       "id": 3,
@@ -229,7 +229,7 @@ Return ONLY a raw JSON object. No markdown. No backticks. No explanation.
         "<Actionable step 3 — imperative verb, under 12 words>"
       ],
       "cta": "<Call to action — max 8 words, e.g. 'Save this for your security team'>",
-      "image_bg_prompt": "<50-word prompt for Imagen 3: dark professional shield/protection visualization, NO TEXT, dark teal/blue theme, abstract geometric security patterns, enterprise tech feel>"
+      "image_bg_prompt": "<50-word prompt for Gemini 2.5 Flash Image: a dark professional portrait of a realistic model with a subtle, glowing abstract shield or security graphic icon in the background. Ensure the background is dark, clean, and textured with ample empty space for overlay text legibility. NO text in the image, cinematic lighting, dark teal/blue theme>"
     }}
   ]
 }}
@@ -710,12 +710,7 @@ def sync_via_rclone(file_paths: list[Path]) -> bool:
         except Exception as e:
             log.warning(f"  Failed to decode/write RCLONE_CONFIG_BASE64: {e}")
 
-    dest = (
-        f"{RCLONE_REMOTE}:__id_{RCLONE_FOLDER}"
-        if RCLONE_FOLDER else
-        f"{RCLONE_REMOTE}:"
-    )
-
+    dest = f"{RCLONE_REMOTE}:"
     cmd = [
         "rclone", "copy",
         str(OUTPUT_DIR),
@@ -724,6 +719,8 @@ def sync_via_rclone(file_paths: list[Path]) -> bool:
         "--include", "*.txt",
         "--transfers", "1",
     ]
+    if RCLONE_FOLDER:
+        cmd.extend(["--drive-root-folder-id", RCLONE_FOLDER])
 
     log.info(f"\n━━━━ MODULE D: rclone Sync → {dest} ━━━━")
     log.info(f"  Command: {' '.join(cmd)}")
