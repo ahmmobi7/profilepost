@@ -700,6 +700,18 @@ def sync_via_rclone(file_paths: list[Path]) -> bool:
         log.warning("  No files to sync.")
         return False
 
+    rclone_config_b64 = os.getenv("RCLONE_CONFIG_BASE64")
+    if rclone_config_b64:
+        try:
+            import base64
+            config_dir = Path.home() / ".config" / "rclone"
+            config_dir.mkdir(parents=True, exist_ok=True)
+            config_path = config_dir / "rclone.conf"
+            config_path.write_bytes(base64.b64decode(rclone_config_b64))
+            log.info("  ✓ Decoded and wrote RCLONE_CONFIG_BASE64 to local rclone.conf")
+        except Exception as e:
+            log.warning(f"  Failed to decode/write RCLONE_CONFIG_BASE64: {e}")
+
     dest = (
         f"{RCLONE_REMOTE}:__id_{RCLONE_FOLDER}"
         if RCLONE_FOLDER else
