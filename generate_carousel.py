@@ -57,11 +57,12 @@ logging.basicConfig(
 log = logging.getLogger("carousel")
 
 # ── Environment ───────────────────────────────────────────────
-GOOGLE_API_KEY  = os.environ["GOOGLE_API_KEY"]
-RCLONE_REMOTE   = os.getenv("RCLONE_REMOTE_NAME", "gdrive")
-RCLONE_FOLDER   = os.getenv("RCLONE_FOLDER_ID", "").strip()
-BRAND_NAME      = os.getenv("BRAND_NAME", "YourBrand")
-CTA_LINK        = os.getenv("CTA_LINK", "linkedin.com/in/yourprofile")
+GOOGLE_API_KEY        = os.environ["GOOGLE_API_KEY"]
+RCLONE_REMOTE         = os.getenv("RCLONE_REMOTE_NAME", "gdrive")
+RCLONE_FOLDER         = os.getenv("RCLONE_FOLDER_ID", "").strip()
+RCLONE_CONFIG_BASE64  = os.getenv("RCLONE_CONFIG_BASE64", "").strip()
+BRAND_NAME            = os.getenv("BRAND_NAME", "YourBrand")
+CTA_LINK              = os.getenv("CTA_LINK", "linkedin.com/in/yourprofile")
 
 DATE_TAG    = date.today().strftime("%d%m%y")
 DATE_HUMAN  = date.today().strftime("%B %d, %Y")
@@ -121,35 +122,33 @@ def _font(style: str, size: int) -> ImageFont.FreeTypeFont:
 def load_today_topic() -> str:
     """
     Parse input/topics.txt and return today's topic.
-    File format (one per line, lines starting with # ignored):
-        monday=Cyber Security
-        tuesday=AI and Machine Learning
-    Raises RuntimeError if today's day is not found.
+    If the file is missing or today's day isn't listed, it uses a default fallback topic.
     """
     topics_file = INPUT_DIR / "topics.txt"
+    
+    # 1. Define a solid fallback topic just in case the file is missing
+    fallback_topic = "Future of IT Managed Services and Zero-Trust Security"
 
+    # 2. Check if file exists. If not, don't crash, just use the fallback.
     if not topics_file.exists():
-        raise FileNotFoundError(
-            f"Topics file not found: {topics_file}\n"
-            "Create input/topics.txt with lines like:  monday=Cyber Security"
-        )
+        log.warning(f"⚠️ Topics file missing at {topics_file}. Using fallback topic.")
+        return fallback_topic
 
+    # 3. If it does exist, read the file
     topics: dict[str, str] = {}
     for line in topics_file.read_text(encoding="utf-8").splitlines():
         line = line.strip()
-        if not line or line.startswith("#"):
-            continue
-        if "=" not in line:
+        if not line or line.startswith("#") or "=" not in line:
             continue
         day, _, topic = line.partition("=")
         topics[day.strip().lower()] = topic.strip()
 
+    # 4. Check if today's day (e.g., 'monday') is actually written in the file
     if TODAY not in topics:
-        raise RuntimeError(
-            f"No topic found for '{TODAY}' in {topics_file}.\n"
-            f"Available days: {list(topics.keys())}"
-        )
+        log.warning(f"⚠️ No topic found for '{TODAY}' in {topics_file.name}. Using fallback topic.")
+        return fallback_topic
 
+    # 5. Success
     topic = topics[TODAY]
     log.info(f"  ✓ Today is {TODAY.capitalize()} → topic: '{topic}'")
     return topic
@@ -700,14 +699,13 @@ def sync_via_rclone(file_paths: list[Path]) -> bool:
         log.warning("  No files to sync.")
         return False
 
-    rclone_config_b64 = os.getenv("RCLONE_CONFIG_BASE64")
-    if rclone_config_b64:
+    if RCLONE_CONFIG_BASE64:
         try:
             import base64
             config_dir = Path.home() / ".config" / "rclone"
             config_dir.mkdir(parents=True, exist_ok=True)
             config_path = config_dir / "rclone.conf"
-            config_path.write_bytes(base64.b64decode(rclone_config_b64))
+            config_path.write_bytes(base64.b64decode(RCLONE_CONFIG_BASE64))
             log.info("  ✓ Decoded and wrote RCLONE_CONFIG_BASE64 to local rclone.conf")
         except Exception as e:
             log.warning(f"  Failed to decode/write RCLONE_CONFIG_BASE64: {e}")
