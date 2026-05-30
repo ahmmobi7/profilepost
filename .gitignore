@@ -1,5 +1,5 @@
 .env
-output/
+
 logs/
 *.json
 .env.example
