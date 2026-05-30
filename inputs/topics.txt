@@ -1,0 +1,7 @@
+Monday="Cyber Security"
+Tuesday="Intune"
+Wednesday="AIops"
+Thursday="Cloud"
+Friday="AI/ML"
+Saturday="IT Trending News"
+Sunday="Quantum Computing"

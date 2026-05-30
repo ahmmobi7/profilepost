@@ -1,0 +1,82 @@
+name: Daily LinkedIn Carousel Generator
+
+on:
+  # Runs every day at 5:00 AM UTC
+  schedule:
+    - cron: '0 5 * * *'
+  # Also allow manual trigger from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  generate-carousel:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: li
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      # Install fonts that Pillow can use for professional typography
+      - name: Install system fonts
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y \
+            fonts-liberation \
+            fonts-open-sans \
+            fonts-ubuntu \
+            fontconfig
+          fc-cache -fv
+          # List available fonts for debugging
+          fc-list | grep -i "liberation\|opensans\|ubuntu" | head -10
+
+      - name: Install Python packages
+        run: pip install -r requirements.txt
+
+      - name: Install and configure rclone
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y rclone
+          mkdir -p ~/.config/rclone
+          echo "${{ secrets.GDRIVE_SA_JSON }}" | base64 -d > ~/.config/rclone/sa.json
+          cat <<EOF > ~/.config/rclone/rclone.conf
+          [gdrive]
+          type = drive
+          scope = drive.file
+          service_account_file = $HOME/.config/rclone/sa.json
+          EOF
+
+      - name: Prepare output directory
+        run: mkdir -p output logs
+
+      - name: Generate carousel slides
+        env:
+          GOOGLE_API_KEY:    ${{ secrets.GOOGLE_API_KEY }}
+          RCLONE_REMOTE_NAME: gdrive
+          RCLONE_FOLDER_ID:  ${{ vars.GDRIVE_FOLDER_ID }}
+          BRAND_NAME:        ${{ vars.BRAND_NAME }}
+          CTA_LINK:          ${{ vars.CTA_LINK }}
+        run: python generate_carousel.py
+
+      # Upload final slides as artifact for quick preview (3-day retention)
+      - name: Upload slides as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: carousel-slides-${{ github.run_number }}
+          path: output/
+          retention-days: 3
+
+      # Upload logs for debugging
+      - name: Upload logs as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: carousel-logs-${{ github.run_number }}
+          path: logs/
+          retention-days: 7

@@ -1,0 +1,8 @@
+.env
+output/
+logs/
+*.json
+.env.example
+__pycache__/
+*.pyc
+.DS_Store
