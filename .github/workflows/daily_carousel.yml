@@ -52,7 +52,7 @@ jobs:
         env:
           GOOGLE_API_KEY:    ${{ secrets.GOOGLE_API_KEY }}
           RCLONE_REMOTE_NAME: gdrive
-          RCLONE_FOLDER_ID:  ${{ vars.GDRIVE_FOLDER_ID }}
+          RCLONE_FOLDER_ID:  ${{ vars.RCLONE_FOLDER_ID }}
           BRAND_NAME:        ${{ vars.BRAND_NAME }}
           CTA_LINK:          ${{ vars.CTA_LINK }}
         run: python generate_carousel.py

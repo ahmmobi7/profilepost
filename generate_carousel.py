@@ -158,14 +158,21 @@ def load_today_topic() -> str:
 # MODULE B — GEMINI 2.5 FLASH CONTENT + PROMPT GENERATION
 # ════════════════════════════════════════════════════════════════
 
+def hex_to_rgb(hex_str: str) -> tuple[int, int, int]:
+    """Convert HEX color string to RGB tuple."""
+    hex_str = hex_str.lstrip('#')
+    return tuple(int(hex_str[i:i+2], 16) for i in (0, 2, 4))
+
+
 def generate_content(topic: str) -> dict:
     """
     Call Gemini 2.5 Flash with Google Search grounding to:
     1. Find the most relevant trending news on the topic today
     2. Structure it into 3-slide carousel content
-    3. Generate a background image prompt for each slide
-
-    Returns a validated dict with slide content and image prompts.
+    3. Generate a dynamic theme (colors and light/dark mode) suitable for the content
+    4. Generate a background image prompt for each slide matching the theme style
+    
+    Returns a validated dict with slide content, theme, and image prompts.
     Retries up to 3 times with 20-second backoff.
     """
     log.info(f"━━━━ MODULE B: Gemini 2.5 Flash — Topic: {topic} ━━━━")
@@ -191,45 +198,79 @@ Generate a 3-slide LinkedIn carousel (9:16 portrait, 1080×1920px) with this str
   Slide 2: WHAT'S HAPPENING — key facts, data points, impact (short bullet format)
   Slide 3: WHAT TO DO   — 3 actionable steps the reader can take NOW
 
-Return ONLY a raw JSON object. No markdown. No backticks. No explanation.
+Also, design a custom professional visual theme palette for the slides based on the content/vibe.
+The theme must specify a mode ("light" or "dark") and a set of matching colors (in #HEX format).
+Ensure contrast is extremely high:
+- If mode is "light":
+  - bg: light grey/blue/cream (e.g. #F4F6F9, #FAF9F6)
+  - bg_card: clean white (#FFFFFF)
+  - text: deep dark charcoal/blue (#0F172A, #1E293B)
+  - muted: slate grey (#475569)
+  - accent: professional blue/indigo (#2563EB, #4F46E5)
+  - accent2: light blue/cyan (#0284C7, #0891B2)
+  - success: dark green (#15803D)
+  - danger: dark red (#B91C1C)
+- If mode is "dark":
+  - bg: deep navy/charcoal (#080E1A, #0F172A)
+  - bg_card: dark card (#1E293B, #162448)
+  - text: near-white (#F9FAFB)
+  - muted: cool grey (#9CA3AF)
+  - accent: vibrant blue (#2563EB)
+  - accent2: light blue (#63B3ED)
+  - success: vibrant green (#22C55E)
+  - danger: vibrant red (#EF4444)
+
+Return ONLY a raw JSON object. Do not include raw control characters or unescaped newlines in string fields.
 
 {{
   "topic": "{topic}",
-  "trending_headline": "<The real trending news headline you found — under 15 words>",
-  "source": "<Publication name and approximate date>",
-  "daily_angle": "<One sentence: what makes this story uniquely important today>",
-  "caption": "<LinkedIn post caption — 2 punchy sentences + 5 relevant hashtags>",
+  "trending_headline": "trending news headline under 15 words",
+  "source": "publication name and date",
+  "daily_angle": "what makes this story uniquely important today",
+  "caption": "LinkedIn post caption with hashtags",
+  "theme": {{
+    "mode": "light or dark",
+    "bg": "bg color hex starting with hash",
+    "bg_card": "bg_card color hex starting with hash",
+    "accent": "accent color hex starting with hash",
+    "accent2": "accent2 color hex starting with hash",
+    "text": "text color hex starting with hash",
+    "muted": "muted color hex starting with hash",
+    "highlight": "highlight color hex starting with hash",
+    "danger": "danger color hex starting with hash",
+    "success": "success color hex starting with hash"
+  }},
   "slides": [
     {{
       "id": 1,
       "type": "hook",
-      "badge": "<2-3 word badge — e.g. BREAKING or ALERT or MUST READ>",
-      "headline": "<Viral hook headline — max 10 words, creates urgency or FOMO>",
-      "subtext": "<Supporting sentence — max 18 words, adds credibility with a stat or detail>",
-      "image_bg_prompt": "<50-word prompt for Gemini 2.5 Flash Image: describe a dark, professional corporate setting featuring a realistic professional model's face, with subtle glowing graphic icons related to {topic} floating in the background. The composition must have clean, dark negative space in the center/lower area to ensure white text overlay is highly visible. NO text in the image itself, cinematic lighting, deep navy/dark blue palette, 4K detailed>"
+      "badge": "breaking or alert badge",
+      "headline": "viral hook headline",
+      "subtext": "supporting sentence",
+      "image_bg_prompt": "Describe a professional model positioned on the right half of the image looking professional and thoughtful, with floating glowing 3D graphic icons and clean corporate vector shapes representing the slide topic positioned next to them on the right. The background must be a clean, solid, flat theme bg color backdrop, with the left half of the image being completely empty solid theme bg color negative space. Studio lighting, professional studio shot, 4K resolution, NO text."
     }},
     {{
       "id": 2,
       "type": "detail",
       "section_title": "WHAT'S HAPPENING",
       "points": [
-        "<Specific data point or fact — under 15 words>",
-        "<Second specific data point — under 15 words>",
-        "<Third specific data point — under 15 words>"
+        "data point 1",
+        "data point 2",
+        "data point 3"
       ],
-      "image_bg_prompt": "<50-word prompt for Gemini 2.5 Flash Image: dark professional scene with a close-up of a model's face or hand interacting with sleek data/analytics graphic icons. Keep the background dark, low contrast, and clean in text-heavy areas for maximum legibility. NO text in the image, cinematic lighting, dark blue/indigo theme>"
+      "image_bg_prompt": "Describe a different professional model on the right half of the image, holding or interacting with a glowing device that projects 3D charts, icons, and analytics graphics. The background must be a clean, solid, flat theme bg color backdrop, with the left half of the image being completely empty solid theme bg color negative space. Soft studio lighting, 4K resolution, NO text."
     }},
     {{
       "id": 3,
       "type": "action",
       "section_title": "WHAT YOU SHOULD DO",
       "steps": [
-        "<Actionable step 1 — imperative verb, under 12 words>",
-        "<Actionable step 2 — imperative verb, under 12 words>",
-        "<Actionable step 3 — imperative verb, under 12 words>"
+        "actionable step 1",
+        "actionable step 2",
+        "actionable step 3"
       ],
-      "cta": "<Call to action — max 8 words, e.g. 'Save this for your security team'>",
-      "image_bg_prompt": "<50-word prompt for Gemini 2.5 Flash Image: a dark professional portrait of a realistic model with a subtle, glowing abstract shield or security graphic icon in the background. Ensure the background is dark, clean, and textured with ample empty space for overlay text legibility. NO text in the image, cinematic lighting, dark teal/blue theme>"
+      "cta": "call to action under 8 words",
+      "image_bg_prompt": "Describe a different professional model on the right half of the image looking confident, with a large, glowing abstract shield, checklist, or action graphic icon representing the slide content floating behind them on the right. The background must be a clean, solid, flat theme bg color backdrop, with the left half of the image being completely empty solid theme bg color negative space. Studio lighting, 4K resolution, NO text."
     }}
   ]
 }}
@@ -253,7 +294,7 @@ Return ONLY a raw JSON object. No markdown. No backticks. No explanation.
             if "```" in raw:
                 raw = raw.split("```")[1].lstrip("json").strip()
 
-            data = json.loads(raw)
+            data = json.loads(raw, strict=False)
 
             # Validate required structure
             assert "slides" in data, "Missing 'slides' key"
@@ -264,6 +305,7 @@ Return ONLY a raw JSON object. No markdown. No backticks. No explanation.
             log.info(f"  ✓ Headline: {data.get('trending_headline', 'N/A')}")
             log.info(f"  ✓ Source  : {data.get('source', 'N/A')}")
             log.info(f"  ✓ Angle   : {data.get('daily_angle', 'N/A')}")
+            log.info(f"  ✓ Theme Mode: {data.get('theme', {}).get('mode', 'N/A')}")
 
             # Save for audit
             (OUTPUT_DIR / f"content_{DATE_TAG}.json").write_text(
@@ -287,69 +329,107 @@ Return ONLY a raw JSON object. No markdown. No backticks. No explanation.
 # MODULE C — IMAGE GENERATION (Gemini 2.5 Flash Image) + TEXT OVERLAY (Pillow)
 # ════════════════════════════════════════════════════════════════
 
+
+# ════════════════════════════════════════════════════════════════
+# MODULE C — IMAGE GENERATION (Gemini 2.5 Flash Image) + TEXT OVERLAY (Pillow)
+# ════════════════════════════════════════════════════════════════
+
 # ── C1: Gemini 2.5 Flash Image background generation ──────────
 
-def generate_background(prompt: str, slide_num: int) -> Image.Image:
+import random
+
+def generate_background(prompt: str, slide_num: int, pal: dict, mode: str) -> Image.Image:
     """
-    Call Gemini 2.5 Flash Image to generate a 9:16 background image.
-    Blocks until generation is complete (synchronous API).
+    Download a random background from gdrive:libg using rclone.
+    Blocks until generation is complete.
     Returns PIL Image or a Pillow-generated fallback gradient.
     """
-    from google import genai
-    from google.genai import types
-
-    client = genai.Client(api_key=GOOGLE_API_KEY)
-
     for attempt in range(1, 4):
         try:
-            log.info(f"  [Slide {slide_num}] Gemini 2.5 Flash Image generation (attempt {attempt}/3) ...")
+            log.info(f"  [Slide {slide_num}] Fetching random background from {RCLONE_REMOTE}:libg (attempt {attempt}/3) ...")
 
-            response = client.models.generate_content(
-                model="gemini-2.5-flash-image",
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    response_modalities=["IMAGE"],
-                    image_config=types.ImageConfig(
-                        aspect_ratio="9:16",
-                    ),
-                ),
-            )
-
-            # Access the generated image bytes
-            image_bytes = None
-            for part in response.candidates[0].content.parts:
-                if part.inline_data:
-                    image_bytes = part.inline_data.data
-                    break
-
-            if not image_bytes:
-                raise ValueError("Gemini 2.5 Flash Image returned no image data")
-
-            img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+            list_cmd = ["rclone", "lsjson", f"{RCLONE_REMOTE}:libg"]
+            result = subprocess.run(list_cmd, capture_output=True, text=True)
+            if result.returncode != 0:
+                raise ValueError(f"rclone lsjson failed: {result.stderr}")
+            
+            files = json.loads(result.stdout)
+            image_files = [f for f in files if not f.get("IsDir") and f.get("Name", "").lower().endswith(('.jpg', '.jpeg', '.png'))]
+            
+            if not image_files:
+                raise ValueError(f"No image files found in {RCLONE_REMOTE}:libg")
+                
+            chosen = random.choice(image_files)
+            file_name = chosen["Name"]
+            
+            log.info(f"  [Slide {slide_num}] Selected background: {file_name}")
+            
+            temp_dir = OUTPUT_DIR / "temp"
+            temp_dir.mkdir(exist_ok=True)
+            
+            copy_cmd = ["rclone", "copy", f"{RCLONE_REMOTE}:libg/{file_name}", str(temp_dir)]
+            copy_result = subprocess.run(copy_cmd, capture_output=True, text=True)
+            if copy_result.returncode != 0:
+                raise ValueError(f"rclone copy failed: {copy_result.stderr}")
+                
+            local_path = temp_dir / file_name
+            
+            img = Image.open(local_path).convert("RGB")
+            
+            img_ratio = img.width / img.height
+            target_ratio = W / H
+            if img_ratio > target_ratio:
+                new_w = int(target_ratio * img.height)
+                left = (img.width - new_w) // 2
+                img = img.crop((left, 0, left + new_w, img.height))
+            elif img_ratio < target_ratio:
+                new_h = int(img.width / target_ratio)
+                top = (img.height - new_h) // 2
+                img = img.crop((0, top, img.width, top + new_h))
+                
             img = img.resize((W, H), Image.LANCZOS)
-            log.info(f"  [Slide {slide_num}] ✓ Background generated via Gemini 2.5 Flash Image")
+            log.info(f"  [Slide {slide_num}] ✓ Background loaded from {RCLONE_REMOTE}:libg")
+            
+            local_path.unlink()
+            
             return img
 
         except Exception as e:
-            log.warning(f"  [Slide {slide_num}] Gemini 2.5 Flash Image attempt {attempt}/3: {e}")
+            log.warning(f"  [Slide {slide_num}] rclone fetch attempt {attempt}/3: {e}")
             if attempt < 3:
-                log.info("  Waiting 15s before retry ...")
-                time.sleep(15)
+                log.info("  Waiting 5s before retry ...")
+                time.sleep(5)
 
     # Fallback: Pillow gradient background
-    log.warning(f"  [Slide {slide_num}] Gemini 2.5 Flash Image failed — using gradient fallback")
-    return _make_gradient_bg(slide_num)
+    log.warning(f"  [Slide {slide_num}] rclone fetch failed — using gradient fallback")
+    return _make_gradient_bg(pal, mode, slide_num)
 
 
-def _make_gradient_bg(seed: int) -> Image.Image:
-    """Generate a professional dark gradient background with Pillow."""
+def _make_gradient_bg(pal: dict, mode: str, seed: int) -> Image.Image:
+    """Generate a professional gradient background with Pillow using the theme palette."""
     img  = Image.new("RGB", (W, H))
     draw = ImageDraw.Draw(img)
-    # Different shade per slide for visual variety
-    top_colors    = [(8, 14, 26), (10, 16, 40), (6, 18, 38)]
-    bottom_colors = [(14, 30, 70), (20, 14, 60), (12, 40, 68)]
-    top    = top_colors[seed % 3]
-    bottom = bottom_colors[seed % 3]
+    
+    # Base bg color
+    base = pal["bg"]
+    accent = pal["accent"]
+    
+    # Blend colors
+    if mode == "light":
+        top = base
+        bottom = (
+            int(base[0] * 0.9 + accent[0] * 0.1),
+            int(base[1] * 0.9 + accent[1] * 0.1),
+            int(base[2] * 0.9 + accent[2] * 0.1)
+        )
+    else:
+        top = base
+        bottom = (
+            int(base[0] * 0.85 + accent[0] * 0.15),
+            int(base[1] * 0.85 + accent[1] * 0.15),
+            int(base[2] * 0.85 + accent[2] * 0.15)
+        )
+        
     for y in range(H):
         t = y / H
         r = int(top[0] + (bottom[0] - top[0]) * t)
@@ -359,7 +439,106 @@ def _make_gradient_bg(seed: int) -> Image.Image:
     return img
 
 
-# ── C2: Pillow rendering helpers ──────────────────────────────
+# ── C2: Pillow rendering helpers ──────────────
+
+def _overlay_theme(img: Image.Image, mode: str, pal: dict, alpha: int = 210) -> Image.Image:
+    """Apply a horizontal gradient overlay: opaque on the left (for text readability), fading to transparent on the right (so the model is crisp)."""
+    overlay = Image.new("RGBA", img.size)
+    draw = ImageDraw.Draw(overlay)
+    
+    # Get base background color
+    base = pal["bg"]
+    
+    for x in range(W):
+        # Left 45% is opaque overlay. From 45% to 75% it fades out. Right 25% is completely transparent.
+        if x < int(W * 0.45):
+            curr_alpha = alpha
+        elif x > int(W * 0.75):
+            curr_alpha = 0
+        else:
+            t = (x - int(W * 0.45)) / (int(W * 0.75) - int(W * 0.45))
+            curr_alpha = int(alpha * (1 - t))
+            
+        draw.line([(x, 0), (x, H)], fill=(base[0], base[1], base[2], curr_alpha))
+        
+    base_img = img.convert("RGBA")
+    merged = Image.alpha_composite(base_img, overlay)
+    return merged.convert("RGB")
+
+
+def _draw_top_accent(draw: ImageDraw.Draw, pal: dict, height: int = 8):
+    draw.rectangle([0, 0, W, height], fill=pal["accent"])
+
+
+def _draw_profile_badge(draw: ImageDraw.Draw, pal: dict, mode: str):
+    """Pin a professional profile photo placeholder and handle to the top-right."""
+    avatar_x = W - 320
+    avatar_y = 90
+    avatar_r = 34
+    
+    # Circle base
+    draw.ellipse([avatar_x - avatar_r, avatar_y - avatar_r, avatar_x + avatar_r, avatar_y + avatar_r], fill=pal["accent"])
+    
+    # Draw initials inside avatar circle
+    f_init = _font("bold", 28)
+    initials = BRAND_NAME[:2].upper()
+    ib = draw.textbbox((0, 0), initials, font=f_init)
+    iw, ih = ib[2] - ib[0], ib[3] - ib[1]
+    draw.text((avatar_x - iw // 2, avatar_y - ih // 2 - 3), initials, font=f_init, fill=(255, 255, 255))
+    
+    # Name and Handle
+    f_name = _font("bold", 24)
+    f_handle = _font("regular", 20)
+    text_color = pal["text"]
+    muted_color = pal["muted"]
+    
+    draw.text((avatar_x + avatar_r + 15, avatar_y - 20), BRAND_NAME, font=f_name, fill=text_color)
+    draw.text((avatar_x + avatar_r + 15, avatar_y + 8), f"@{BRAND_NAME.lower()}", font=f_handle, fill=muted_color)
+
+
+def _draw_step_count_badge(draw: ImageDraw.Draw, pal: dict, steps_count: int = 3):
+    """Draw a large italicised step count badge at the bottom-left of the first slide."""
+    x = 80
+    y = H - 390
+    
+    f_num = _font("bold", 120)
+    f_lbl1 = _font("bold", 28)
+    f_lbl2 = _font("regular", 40)
+    
+    num_str = str(steps_count)
+    draw.text((x, y), num_str, font=f_num, fill=pal["accent2"])
+    
+    num_w = draw.textbbox((0, 0), num_str, font=f_num)[2] - draw.textbbox((0, 0), num_str, font=f_num)[0]
+    
+    draw.text((x + num_w + 15, y + 20), "FOLLOW THESE", font=f_lbl1, fill=pal["muted"])
+    draw.text((x + num_w + 15, y + 55), "Steps!", font=f_lbl2, fill=pal["text"])
+
+
+def _draw_bottom_badges(draw: ImageDraw.Draw, pal: dict, mode: str):
+    """Draw 'SWIPE LEFT' pill tag pinned above the footer."""
+    y = H - 200
+    
+    # Left tag: "SWIPE LEFT" in highlight background with dark text
+    f_badge = _font("bold", 28)
+    swipe_text = "SWIPE LEFT"
+    tw = draw.textbbox((0, 0), swipe_text, font=f_badge)[2] - draw.textbbox((0, 0), swipe_text, font=f_badge)[0]
+    
+    bg_color = pal["highlight"]
+    _draw_rounded_rect(draw, 80, y, tw + 36, 56, fill=bg_color, radius=28)
+    draw.text((80 + 18, y + 13), swipe_text, font=f_badge, fill=(0, 0, 0))
+
+
+def _draw_footer(draw: ImageDraw.Draw, slide_num: int, pal: dict):
+    """Brand name left, slide counter right."""
+    bar_y = H - 80
+    draw.rectangle([0, bar_y, W, H], fill=pal["bg_card"])
+    draw.rectangle([0, bar_y, W, bar_y + 1], fill=pal["accent"])
+    f = _font("regular", 30)
+    draw.text((52, bar_y + 24), BRAND_NAME, font=f, fill=pal["muted"])
+    counter = f"{slide_num} / 3"
+    bw      = draw.textbbox((0, 0), counter, font=f)[2]
+    draw.text((W - bw - 52, bar_y + 24), counter, font=f, fill=pal["muted"])
+
 
 def _draw_text_wrapped(draw: ImageDraw.Draw,
                         text: str, xy: tuple,
@@ -411,71 +590,35 @@ def _draw_rounded_rect(draw: ImageDraw.Draw,
         draw.rectangle([x, y, x + w, y + h], fill=fill)
 
 
-def _overlay_dark(img: Image.Image, alpha: int = 160) -> Image.Image:
-    """Apply a semi-transparent dark overlay for text readability."""
-    overlay = Image.new("RGBA", img.size, (0, 0, 0, alpha))
-    base    = img.convert("RGBA")
-    merged  = Image.alpha_composite(base, overlay)
-    return merged.convert("RGB")
-
-
-def _draw_top_accent(draw: ImageDraw.Draw, height: int = 8):
-    draw.rectangle([0, 0, W, height], fill=PAL["accent"])
-
-
-def _draw_footer(draw: ImageDraw.Draw, slide_num: int):
-    """Brand name left, slide counter right."""
-    bar_y = H - 80
-    draw.rectangle([0, bar_y, W, H], fill=(8, 14, 26))
-    draw.rectangle([0, bar_y, W, bar_y + 1], fill=PAL["accent"])
-    f = _font("regular", 30)
-    draw.text((52, bar_y + 24), BRAND_NAME, font=f, fill=PAL["muted"])
-    counter = f"{slide_num} / 3"
-    bw      = draw.textbbox((0, 0), counter, font=f)[2]
-    draw.text((W - bw - 52, bar_y + 24), counter, font=f, fill=PAL["muted"])
-
-
-def _draw_swipe_arrow(draw: ImageDraw.Draw):
-    """Right-arrow indicator on slides 1-2."""
-    f    = _font("bold", 72)
-    text = "→"
-    bx   = draw.textbbox((0, 0), text, font=f)
-    tw   = bx[2] - bx[0]
-    th   = bx[3] - bx[1]
-    pad  = 18
-    x    = W - tw - 60
-    y    = H - th - 110
-    _draw_rounded_rect(draw, x - pad, y - pad, tw + pad * 2, th + pad * 2,
-                       fill=PAL["accent"], radius=50)
-    draw.text((x, y), text, font=f, fill=PAL["text"])
-
-
 # ── C3: Slide 1 — Hook ────────────────────────────────────────
 
-def render_slide_1(bg: Image.Image, slide: dict) -> Image.Image:
-    img  = _overlay_dark(bg, alpha=172)
+def render_slide_1(bg: Image.Image, slide: dict, pal: dict, mode: str) -> Image.Image:
+    # Use horizontal gradient overlay so right side model stays clean
+    img  = _overlay_theme(bg, mode, pal, alpha=190)
     draw = ImageDraw.Draw(img)
 
-    _draw_top_accent(draw)
+    _draw_top_accent(draw, pal)
+    _draw_profile_badge(draw, pal, mode)
 
     # Topic label
-    f_label = _font("regular", 34)
-    draw.text((60, 110), slide.get("topic_label", "").upper(),
-              font=f_label, fill=PAL["accent2"])
-    draw.rectangle([60, 156, 180, 162], fill=PAL["accent"])
+    f_label = _font("regular", 32)
+    draw.text((80, 160), slide.get("topic_label", "").upper(),
+              font=f_label, fill=pal["accent2"])
+    draw.rectangle([80, 206, 200, 212], fill=pal["accent"])
 
     # BREAKING badge
     badge = slide.get("badge", "BREAKING").upper()
-    f_badge = _font("bold", 30)
-    bw    = draw.textbbox((0, 0), badge, font=f_badge)[2]
-    _draw_rounded_rect(draw, 60, 200, bw + 32, 52, fill=PAL["danger"], radius=8)
-    draw.text((76, 210), badge, font=f_badge, fill=PAL["text"])
+    f_badge = _font("bold", 28)
+    bw    = draw.textbbox((0, 0), badge, font=f_badge)[2] - draw.textbbox((0, 0), badge, font=f_badge)[0]
+    _draw_rounded_rect(draw, 80, 240, bw + 32, 50, fill=pal["danger"], radius=8)
+    draw.text((96, 250), badge, font=f_badge, fill=(255, 255, 255))
 
-    # Main headline — very large, centred vertically in upper two-thirds
+    # Main headline — very large, left-aligned, maximum width limited to keep right side clear
     headline  = slide.get("headline", "")
-    f_head    = _font("bold", 88)
-    max_w     = W - 100
-    # Measure line count for vertical centering
+    f_head    = _font("bold", 82)
+    max_w     = int(W * 0.54) # Limit text width to 580px
+    
+    # Headline wrapping
     words     = headline.split()
     lines, cur = [], ""
     for w in words:
@@ -486,144 +629,150 @@ def render_slide_1(bg: Image.Image, slide: dict) -> Image.Image:
             if cur: lines.append(cur)
             cur = w
     if cur: lines.append(cur)
-    lh      = draw.textbbox((0, 0), "Ag", font=f_head)[3] + 16
-    total_h = len(lines) * lh
-    y_start = (H * 2 // 3 - total_h) // 2 + 80
+    
+    lh      = draw.textbbox((0, 0), "Ag", font=f_head)[3] + 14
+    y_start = 330
+
+    stroke_w = 2
+    stroke_fill = (255, 255, 255) if mode == "light" else (0, 0, 0)
 
     for line in lines:
-        lw = draw.textbbox((0, 0), line, font=f_head)[2]
         draw.text(
-            ((W - lw) // 2, y_start),
-            line, font=f_head, fill=PAL["text"],
-            stroke_width=3, stroke_fill=(0, 0, 0)
+            (80, y_start),
+            line, font=f_head, fill=pal["text"],
+            stroke_width=stroke_w, stroke_fill=stroke_fill
         )
         y_start += lh
 
-    # Accent underline
-    draw.rectangle([(W - 200) // 2, y_start + 12, (W + 200) // 2, y_start + 18],
-                   fill=PAL["accent"])
-
     # Subtext
     subtext = slide.get("subtext", "")
-    f_sub   = _font("regular", 44)
+    f_sub   = _font("regular", 40)
     _draw_text_wrapped(
-        draw, subtext, (60, y_start + 40),
-        font=f_sub, fill=PAL["muted"],
-        max_width=W - 120, stroke_width=2, stroke_fill=(0, 0, 0)
+        draw, subtext, (80, y_start + 30),
+        font=f_sub, fill=pal["muted"],
+        max_width=max_w, stroke_width=2, stroke_fill=stroke_fill
     )
 
-    _draw_swipe_arrow(draw)
-    _draw_footer(draw, 1)
+    _draw_step_count_badge(draw, pal, steps_count=3)
+    _draw_bottom_badges(draw, pal, mode)
+    _draw_footer(draw, 1, pal)
     return img
 
 
 # ── C4: Slide 2 — Details ─────────────────────────────────────
 
-def render_slide_2(bg: Image.Image, slide: dict) -> Image.Image:
-    img  = _overlay_dark(bg, alpha=180)
+def render_slide_2(bg: Image.Image, slide: dict, pal: dict, mode: str) -> Image.Image:
+    img  = _overlay_theme(bg, mode, pal, alpha=195)
     draw = ImageDraw.Draw(img)
 
-    _draw_top_accent(draw)
+    _draw_top_accent(draw, pal)
+    _draw_profile_badge(draw, pal, mode)
 
     # Section badge
-    f_section = _font("bold", 32)
+    f_section = _font("bold", 30)
     sec_title = slide.get("section_title", "WHAT'S HAPPENING")
-    bw        = draw.textbbox((0, 0), sec_title, font=f_section)[2]
-    _draw_rounded_rect(draw, 60, 110, bw + 36, 54, fill=PAL["accent"], radius=10)
-    draw.text((78, 120), sec_title, font=f_section, fill=PAL["text"])
+    bw        = draw.textbbox((0, 0), sec_title, font=f_section)[2] - draw.textbbox((0, 0), sec_title, font=f_section)[0]
+    _draw_rounded_rect(draw, 80, 160, bw + 36, 52, fill=pal["accent"], radius=10)
+    draw.text((98, 170), sec_title, font=f_section, fill=(255, 255, 255))
+
+    stroke_fill = (255, 255, 255) if mode == "light" else (0, 0, 0)
 
     # Headline area (topic context)
     headline = slide.get("headline", slide.get("section_title", "Key Facts"))
-    f_head   = _font("bold", 66)
+    f_head   = _font("bold", 64)
+    max_w     = int(W * 0.54) # Limit text width to 580px
     _draw_text_wrapped(
-        draw, headline, (60, 200),
-        font=f_head, fill=PAL["text"],
-        max_width=W - 120, stroke_width=2, stroke_fill=(0, 0, 0)
+        draw, headline, (80, 240),
+        font=f_head, fill=pal["text"],
+        max_width=max_w, stroke_width=2, stroke_fill=stroke_fill
     )
 
-    # Data points as styled cards
+    # Data points as styled cards on the left half
     points  = slide.get("points", [])
-    card_y  = 420
-    card_h  = 200
-    gap     = 30
-    f_point = _font("regular", 44)
-    f_num   = _font("bold", 52)
+    card_y  = 440
+    card_h  = 180
+    gap     = 24
+    f_point = _font("regular", 36)
+    f_num   = _font("bold", 44)
 
     for idx, point in enumerate(points[:3]):
         # Card background
-        _draw_rounded_rect(draw, 48, card_y, W - 96, card_h,
-                           fill=(16, 24, 52), radius=20)
+        _draw_rounded_rect(draw, 80, card_y, max_w, card_h,
+                           fill=pal["bg_card"], radius=20)
         # Left accent strip
-        draw.rectangle([48, card_y, 60, card_y + card_h], fill=PAL["accent"])
+        draw.rectangle([80, card_y, 90, card_y + card_h], fill=pal["accent"])
         # Number badge
         num_txt = f"0{idx + 1}"
-        draw.text((80, card_y + 20), num_txt, font=f_num, fill=PAL["accent"])
+        draw.text((110, card_y + 15), num_txt, font=f_num, fill=pal["accent"])
         # Point text
         _draw_text_wrapped(
-            draw, point, (80, card_y + 85),
-            font=f_point, fill=PAL["text"],
-            max_width=W - 160, line_gap=10
+            draw, point, (110, card_y + 70),
+            font=f_point, fill=pal["text"],
+            max_width=max_w - 50, line_gap=8
         )
         card_y += card_h + gap
 
-    _draw_swipe_arrow(draw)
-    _draw_footer(draw, 2)
+    _draw_bottom_badges(draw, pal, mode)
+    _draw_footer(draw, 2, pal)
     return img
 
 
 # ── C5: Slide 3 — Actions ─────────────────────────────────────
 
-def render_slide_3(bg: Image.Image, slide: dict) -> Image.Image:
-    img  = _overlay_dark(bg, alpha=185)
+def render_slide_3(bg: Image.Image, slide: dict, pal: dict, mode: str) -> Image.Image:
+    img  = _overlay_theme(bg, mode, pal, alpha=200)
     draw = ImageDraw.Draw(img)
 
-    _draw_top_accent(draw)
+    _draw_top_accent(draw, pal)
+    _draw_profile_badge(draw, pal, mode)
 
     # Section badge
-    f_section = _font("bold", 32)
+    f_section = _font("bold", 30)
     sec_title = slide.get("section_title", "WHAT YOU SHOULD DO")
-    bw        = draw.textbbox((0, 0), sec_title, font=f_section)[2]
-    _draw_rounded_rect(draw, 60, 110, bw + 36, 54, fill=PAL["success"], radius=10)
-    draw.text((78, 120), sec_title, font=f_section, fill=(8, 14, 26))
+    bw        = draw.textbbox((0, 0), sec_title, font=f_section)[2] - draw.textbbox((0, 0), sec_title, font=f_section)[0]
+    _draw_rounded_rect(draw, 80, 160, bw + 36, 52, fill=pal["success"], radius=10)
+    sec_txt_color = (0, 0, 0) if mode == "dark" else (255, 255, 255)
+    draw.text((98, 170), sec_title, font=f_section, fill=sec_txt_color)
 
-    # Steps
+    # Steps on the left half
     steps   = slide.get("steps", [])
-    step_y  = 230
-    f_step  = _font("regular", 46)
-    f_num   = _font("bold", 56)
-    step_h  = 240
+    step_y  = 240
+    f_step  = _font("regular", 36)
+    f_num   = _font("bold", 44)
+    step_h  = 200
     gap     = 24
-    icons   = ["①", "②", "③"]
+    max_w   = int(W * 0.54) # Limit text width to 580px
 
     for idx, step in enumerate(steps[:3]):
         # Step card
-        _draw_rounded_rect(draw, 48, step_y, W - 96, step_h,
-                           fill=(16, 24, 52), radius=20)
+        _draw_rounded_rect(draw, 80, step_y, max_w, step_h,
+                           fill=pal["bg_card"], radius=20)
         # Number in accent circle
         num = str(idx + 1)
-        nf  = _font("bold", 52)
-        draw.ellipse([60, step_y + 20, 130, step_y + 90], fill=PAL["accent"])
-        nw  = draw.textbbox((0, 0), num, font=nf)[2]
-        draw.text((60 + (70 - nw) // 2, step_y + 26), num, font=nf, fill=PAL["text"])
+        nf  = _font("bold", 40)
+        draw.ellipse([95, step_y + 15, 150, step_y + 70], fill=pal["accent"])
+        nw  = draw.textbbox((0, 0), num, font=nf)[2] - draw.textbbox((0, 0), num, font=nf)[0]
+        draw.text((95 + (55 - nw) // 2, step_y + 20), num, font=nf, fill=(255, 255, 255))
         # Step text
         _draw_text_wrapped(
-            draw, step, (148, step_y + 28),
-            font=f_step, fill=PAL["text"],
-            max_width=W - 220, line_gap=10
+            draw, step, (165, step_y + 22),
+            font=f_step, fill=pal["text"],
+            max_width=max_w - 100, line_gap=8
         )
         step_y += step_h + gap
 
-    # CTA block — pinned above footer
+    # CTA block — pinned above bottom badge area
     cta_text = slide.get("cta", "Save this for your team")
-    cta_y    = H - 210
-    cta_h    = 120
-    _draw_rounded_rect(draw, 48, cta_y, W - 96, cta_h,
-                       fill=PAL["accent"], radius=20)
-    f_cta = _font("bold", 46)
-    cw    = draw.textbbox((0, 0), cta_text, font=f_cta)[2]
-    draw.text(((W - cw) // 2, cta_y + 34), cta_text, font=f_cta, fill=PAL["text"])
+    cta_y    = H - 290
+    cta_h    = 80
+    _draw_rounded_rect(draw, 80, cta_y, max_w, cta_h,
+                       fill=pal["accent"], radius=20)
+    f_cta = _font("bold", 34)
+    cw    = draw.textbbox((0, 0), cta_text, font=f_cta)[2] - draw.textbbox((0, 0), cta_text, font=f_cta)[0]
+    draw.text((80 + (max_w - cw) // 2, cta_y + 23), cta_text, font=f_cta, fill=(255, 255, 255))
 
-    _draw_footer(draw, 3)
+    _draw_bottom_badges(draw, pal, mode)
+    _draw_footer(draw, 3, pal)
     return img
 
 
@@ -633,7 +782,7 @@ def generate_all_slides(content: dict) -> list[Path]:
     """
     For each of 3 slides:
       1. Call Gemini 2.5 Flash Image to generate background (blocks until complete)
-      2. Overlay professional text with Pillow
+      2. Overlay professional text with Pillow using the generated theme
       3. Save JPEG to output/
     Returns list of saved file paths.
     """
@@ -642,6 +791,38 @@ def generate_all_slides(content: dict) -> list[Path]:
     topic   = content.get("topic", "")
     slides  = content["slides"]
     paths   = []
+
+    # Dynamic theme parsing
+    theme = content.get("theme", {})
+    mode = theme.get("mode", "dark")
+    
+    # Fallback palette if the API fails to provide one or provides invalid HEX colors
+    try:
+        pal = {
+            "bg"        : hex_to_rgb(theme.get("bg", "#080E1A")),
+            "bg_card"   : hex_to_rgb(theme.get("bg_card", "#101830")),
+            "accent"    : hex_to_rgb(theme.get("accent", "#2563EB")),
+            "accent2"   : hex_to_rgb(theme.get("accent2", "#63B3ED")),
+            "text"      : hex_to_rgb(theme.get("text", "#F9FAFB")),
+            "muted"     : hex_to_rgb(theme.get("muted", "#9CA3AF")),
+            "highlight" : hex_to_rgb(theme.get("highlight", "#FBBF24")),
+            "danger"    : hex_to_rgb(theme.get("danger", "#EF4444")),
+            "success"   : hex_to_rgb(theme.get("success", "#22C55E")),
+        }
+    except Exception as e:
+        log.warning(f"Failed to parse theme color HEX codes: {e}. Using default dark palette.")
+        pal = {
+            "bg"        : (8,  14,  26),
+            "bg_card"   : (16, 24,  48),
+            "accent"    : (37, 99,  235),
+            "accent2"   : (99, 179, 237),
+            "text"      : (249, 250, 251),
+            "muted"     : (156, 163, 175),
+            "highlight" : (251, 191, 36),
+            "danger"    : (239, 68,  68),
+            "success"   : (34,  197, 94),
+        }
+        mode = "dark"
 
     render_fns = {
         "hook"  : render_slide_1,
@@ -661,7 +842,12 @@ def generate_all_slides(content: dict) -> list[Path]:
         slide["topic_label"] = topic
 
         # Generate AI background — pipeline sleeps here until complete
-        bg = generate_background(slide["image_bg_prompt"], slide_num=slide_id)
+        # Pass the dynamic palette to fallback background builder if Gemini Image fails
+        try:
+            bg = generate_background(slide["image_bg_prompt"], slide_id, pal, mode)
+        except Exception:
+            log.warning("Image generation crashed. Using gradient fallback.")
+            bg = _make_gradient_bg(pal, mode, slide_id)
 
         # Render text overlay
         render_fn = render_fns.get(slide_type)
@@ -669,7 +855,7 @@ def generate_all_slides(content: dict) -> list[Path]:
             log.error(f"  Unknown slide type: {slide_type}")
             continue
 
-        rendered = render_fn(bg, slide)
+        rendered = render_fn(bg, slide, pal, mode)
         rendered.save(str(out_path), "JPEG", quality=95, optimize=True)
         size_kb  = out_path.stat().st_size // 1024
         log.info(f"  ✓ Slide {slide_id} saved: {out_path.name} ({size_kb} KB)")
@@ -710,7 +896,7 @@ def sync_via_rclone(file_paths: list[Path]) -> bool:
         except Exception as e:
             log.warning(f"  Failed to decode/write RCLONE_CONFIG_BASE64: {e}")
 
-    dest = f"{RCLONE_REMOTE}:"
+    dest = f"{RCLONE_REMOTE}:LinkedCarousel"
     cmd = [
         "rclone", "copy",
         str(OUTPUT_DIR),
@@ -719,8 +905,6 @@ def sync_via_rclone(file_paths: list[Path]) -> bool:
         "--include", "*.txt",
         "--transfers", "1",
     ]
-    if RCLONE_FOLDER:
-        cmd.extend(["--drive-root-folder-id", RCLONE_FOLDER])
 
     log.info(f"\n━━━━ MODULE D: rclone Sync → {dest} ━━━━")
     log.info(f"  Command: {' '.join(cmd)}")

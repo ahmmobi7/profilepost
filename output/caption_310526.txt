@@ -1,0 +1,8 @@
+LinkedIn Carousel — May 31, 2026
+Topic  : "Quantum Computing"
+Source : Nextgov/FCW (May 20, 2026), Asia Times (May 25, 2026)
+Angle  : Regulatory mandates and immediate 'harvest now, decrypt later' threats are forcing accelerated PQC migration, making it a critical cybersecurity priority today.
+
+============================================================
+
+The quantum clock is ticking faster than ever! New government mandates are compressing Post-Quantum Cryptography (PQC) migration timelines, with explicit warnings about 'harvest now, decrypt later' attacks. This isn't a future problem; it's a present danger to our most sensitive data. Are you prepared? #QuantumComputing #Cybersecurity #PQC #PostQuantum #Encryption #DataSecurity #HarvestNowDecryptLater #TechNews
